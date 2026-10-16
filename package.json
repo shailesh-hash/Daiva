@@ -1,0 +1,31 @@
+{
+  "name": "daiva",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": "^22.13.0",
+    "pnpm": ">=12.0.0"
+  },
+  "scripts": {
+    "preinstall": "node ./scripts/check-node.mjs",
+    "lint": "pnpm -r --if-present lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build",
+    "dev:client": "pnpm --filter @daiva/client start",
+    "dev:web": "pnpm --filter @daiva/client web",
+    "dev:api": "pnpm --filter @daiva/api dev"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "9.39.5",
+    "globals": "^16.4.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "5.0.5"
+  }
+}

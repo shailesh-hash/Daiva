@@ -1,0 +1,46 @@
+# Dependencies
+node_modules
+.pnpm-store
+.pnp.*
+
+# Build and cache
+dist
+build
+coverage
+.turbo
+*.tsbuildinfo
+.expo
+.expo-shared
+web-build
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Native / Expo
+ios/Pods
+ios/build
+android/build
+android/.gradle
+android/local.properties
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Tooling
+.eslintcache
+.prettiercache
+
+# OS and editors
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*~
