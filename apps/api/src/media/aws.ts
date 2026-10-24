@@ -16,5 +16,6 @@ export function createMediaClients(env: NodeJS.ProcessEnv = process.env) {
     sourceBucket: required(env, 'MEDIA_SOURCE_BUCKET'),
     outputBucket: required(env, 'MEDIA_OUTPUT_BUCKET'),
     mediaConvertRoleArn: required(env, 'MEDIACONVERT_ROLE_ARN'),
+    cdnDomain: required(env, 'CDN_DOMAIN').replace(/^https?:\\/\\//, '').replace(/\\/$/, ''),
   };
 }
