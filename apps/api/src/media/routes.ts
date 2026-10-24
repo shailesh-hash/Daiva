@@ -186,6 +186,7 @@ export async function registerMediaRoutes(
                       Destination: destination,
                       SegmentLength: 6,
                       MinSegmentLength: 0,
+                      ManifestName: 'main',
                       DirectoryStructure: 'SINGLE_DIRECTORY',
                       ManifestCompression: 'NONE',
                       OutputSelection: 'MANIFESTS_AND_SEGMENTS',
