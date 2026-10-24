@@ -21,7 +21,7 @@ export async function handler(event: MediaConvertEvent): Promise<{ ok: true }> {
       prisma,
       s3,
       outputBucket,
-      cdnDomain: process.env.CDN_DOMAIN?.trim() || undefined,
+      cdnDomain: required('CDN_DOMAIN').replace(/^https?:\/\//, '').replace(/\/$/, ''),
     });
     return { ok: true };
   } finally {

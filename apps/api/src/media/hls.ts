@@ -8,6 +8,10 @@ export function outputPrefix(mediaId: string): string {
   return `episodes/${mediaId}/`;
 }
 
+export function hlsDestination(outputBucket: string, mediaId: string): string {
+  return `s3://${outputBucket}/episodes/${mediaId}/main`;
+}
+
 export function expectedMasterKey(mediaId: string): string {
   return `${outputPrefix(mediaId)}${HLS_MASTER_PLAYLIST}`;
 }

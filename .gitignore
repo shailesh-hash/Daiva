@@ -39,6 +39,7 @@ apps/api/src/generated
 .eslintcache
 .prettiercache
 .netlify
+apps/api/scripts/daiva-api-media-policy.json
 
 # OS and editors
 .DS_Store
