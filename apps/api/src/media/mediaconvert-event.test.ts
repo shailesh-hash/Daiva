@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { expectedMasterKey, resolveMasterObjectKey } from './hls.js';
+import { expectedMasterKey, hlsDestination, resolveMasterObjectKey } from './hls.js';
 import { handleMediaConvertEvent } from './mediaconvert-event.js';
 
 function prismaStub(media: {
@@ -51,6 +51,9 @@ describe('resolveMasterObjectKey', () => {
   it('falls back to the documented main.m3u8 key', () => {
     expect(resolveMasterObjectKey({}, 'media-1', 'private-output')).toBe(
       expectedMasterKey('media-1'),
+    );
+    expect(hlsDestination('private-output', 'media-1')).toBe(
+      's3://private-output/episodes/media-1/main',
     );
   });
 });

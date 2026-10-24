@@ -52,4 +52,17 @@ describe('admin media upload configuration', () => {
       }),
     ).rejects.toThrow(/incomplete/);
   });
+
+  it('requires CDN_DOMAIN with the rest of the media settings', async () => {
+    await expect(
+      buildApp({
+        ...env,
+        AWS_REGION: 'ap-south-1',
+        MEDIA_SOURCE_BUCKET: 'daiva-source-test',
+        MEDIA_OUTPUT_BUCKET: 'daiva-output-test',
+        MEDIACONVERT_ENDPOINT: 'https://mediaconvert.ap-south-1.amazonaws.com',
+        MEDIACONVERT_ROLE_ARN: 'arn:aws:iam::123456789012:role/DaivaMediaConvertRole',
+      }),
+    ).rejects.toThrow(/incomplete/);
+  });
 });

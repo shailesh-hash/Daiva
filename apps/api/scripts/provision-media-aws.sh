@@ -87,10 +87,20 @@ if [ "$DIST_ID" = "None" ] || [ -z "$DIST_ID" ]; then
     CallerReference:($comment+"-"+$bucket),
     Comment:$comment,
     Enabled:true,
+    HttpVersion:"http2",
+    IsIPV6Enabled:true,
     PriceClass:"PriceClass_100",
     Origins:{Quantity:1,Items:[{Id:"daiva-private-output-s3",DomainName:$bucket,OriginAccessControlId:$oac,S3OriginConfig:{OriginAccessIdentity:""}}]},
-    DefaultCacheBehavior:{TargetOriginId:"daiva-private-output-s3",ViewerProtocolPolicy:"redirect-to-https",AllowedMethods:{Quantity:2,Items:["GET","HEAD"],CachedMethods:{Quantity:2,Items:["GET","HEAD"]}},Compress:true,ForwardedValues:{QueryString:false,Cookies:{Forward:"none"},Headers:{Quantity:0,Items:[]}},MinTTL:0,DefaultTTL:86400,MaxTTL:31536000},
-    ViewerCertificate:{CloudFrontDefaultCertificate:true}
+    DefaultCacheBehavior:{
+      TargetOriginId:"daiva-private-output-s3",
+      ViewerProtocolPolicy:"redirect-to-https",
+      AllowedMethods:{Quantity:2,Items:["GET","HEAD"],CachedMethods:{Quantity:2,Items:["GET","HEAD"]}},
+      Compress:true,
+      CachePolicyId:"4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+      TrustedSigners:{Enabled:false,Quantity:0}
+    },
+    Restrictions:{GeoRestriction:{RestrictionType:"none",Quantity:0}},
+    ViewerCertificate:{CloudFrontDefaultCertificate:true,MinimumProtocolVersion:"TLSv1.2_2021"}
   }')"
   DIST_ID="$(aws cloudfront create-distribution --distribution-config "$DIST_CONFIG" --query 'Distribution.Id' --output text)"
 fi
@@ -127,7 +137,7 @@ aws cloudwatch put-metric-alarm --alarm-name "daiva-mediaconvert-eventbridge-fai
 # Emit the API runtime least-privilege policy as a file; do not attach it to an unknown runtime role.
 API_POLICY_PATH="${DAIVA_API_POLICY_PATH:-apps/api/scripts/daiva-api-media-policy.json}"
 mkdir -p "$(dirname "$API_POLICY_PATH")"
-jq -n --arg source "$SOURCE_ARN" --arg role "$ROLE_ARN" --arg endpoint "$ENDPOINT" '{
+jq -n --arg source "$SOURCE_ARN" --arg role "$ROLE_ARN" '{
  Version:"2012-10-17",Statement:[
  {Sid:"UploadAndVerifySource",Effect:"Allow",Action:["s3:PutObject","s3:GetObject"],Resource:($source+"/uploads/*")},
  {Sid:"CreateAndInspectMediaConvertJobs",Effect:"Allow",Action:["mediaconvert:CreateJob","mediaconvert:GetJob"],Resource:"*"},

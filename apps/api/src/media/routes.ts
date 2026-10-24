@@ -15,7 +15,7 @@ import type { AuthUser } from '../auth/types.js';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { ApiHttpError } from '../http/errors.js';
 import { createMediaClients } from './aws.js';
-import { outputPrefix, sourceObjectKey } from './hls.js';
+import { hlsDestination, sourceObjectKey } from './hls.js';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -159,7 +159,7 @@ export async function registerMediaRoutes(
         throw new ApiHttpError(409, 'CONFLICT', 'Media is already queued for processing');
       }
 
-      const destination = `s3://${outputBucket}/${outputPrefix(mediaId)}`;
+      const destination = hlsDestination(outputBucket, mediaId);
       try {
         const job = await clients.mediaConvert.send(
           new CreateJobCommand({
@@ -186,7 +186,6 @@ export async function registerMediaRoutes(
                       Destination: destination,
                       SegmentLength: 6,
                       MinSegmentLength: 0,
-                      ManifestName: 'main',
                       DirectoryStructure: 'SINGLE_DIRECTORY',
                       ManifestCompression: 'NONE',
                       OutputSelection: 'MANIFESTS_AND_SEGMENTS',
