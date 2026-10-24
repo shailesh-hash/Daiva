@@ -25,12 +25,15 @@ import type { AdminRepository } from './admin/types.js';
 import { MemoryUserLibraryRepository } from './users/memory-repository.js';
 import { registerUserRoutes } from './users/routes.js';
 import type { UserLibraryRepository } from './users/types.js';
+import type { PrismaClient } from './generated/prisma/client.js';
+import { registerMediaRoutes } from './media/routes.js';
 
 export type BuildAppDependencies = {
   catalogue?: CatalogueRepository;
   auth?: AuthVerifier;
   users?: UserLibraryRepository;
   admin?: AdminRepository;
+  mediaPrisma?: PrismaClient;
 };
 
 export async function buildApp(
@@ -119,6 +122,16 @@ export async function buildApp(
   await registerUserRoutes(app, catalogue, users);
   await registerDevSessionRoute(app, env);
   await registerAdminRoutes(app, admin, env);
+
+  const mediaConfig = ['AWS_REGION', 'MEDIA_SOURCE_BUCKET', 'MEDIA_OUTPUT_BUCKET', 'MEDIACONVERT_ENDPOINT', 'MEDIACONVERT_ROLE_ARN'];
+  const configuredMediaValues = mediaConfig.filter((key) => Boolean(env[key]?.trim()));
+  if (configuredMediaValues.length > 0 && configuredMediaValues.length !== mediaConfig.length) {
+    throw new Error('Phase 9 media configuration is incomplete; set all required AWS media environment variables');
+  }
+  if (configuredMediaValues.length === mediaConfig.length) {
+    if (!deps.mediaPrisma) throw new Error('Phase 9 media routes require the Prisma client');
+    await registerMediaRoutes(app, deps.mediaPrisma, env);
+  }
 
   return app;
 }
