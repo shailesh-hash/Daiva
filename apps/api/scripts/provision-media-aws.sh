@@ -106,6 +106,10 @@ EVENT_PATTERN='{"source":["aws.mediaconvert"],"detail-type":["MediaConvert Job S
 RULE_ARN="$(aws events put-rule --name "$RULE_NAME" --description "DAIVA MediaConvert terminal job events" --event-pattern "$EVENT_PATTERN" --state ENABLED --region "$REGION" --query RuleArn --output text)"
 DLQ_URL="$(aws sqs create-queue --queue-name "$DLQ_NAME" --attributes '{"MessageRetentionPeriod":"1209600","SqsManagedSseEnabled":"true"}' --region "$REGION" --query QueueUrl --output text)"
 DLQ_ARN="$(aws sqs get-queue-attributes --queue-url "$DLQ_URL" --attribute-names QueueArn --region "$REGION" --query 'Attributes.QueueArn' --output text)"
+DLQ_POLICY="$(jq -cn --arg queue "$DLQ_ARN" --arg rule "$RULE_ARN" '{
+ Version:"2012-10-17",Statement:[{Sid:"AllowEventBridgeToSendDeadLetters",Effect:"Allow",Principal:{Service:"events.amazonaws.com"},Action:"sqs:SendMessage",Resource:$queue,Condition:{ArnEquals:{"aws:SourceArn":$rule}}}]
+}')"
+aws sqs set-queue-attributes --queue-url "$DLQ_URL" --attributes "$(jq -cn --arg policy "$DLQ_POLICY" '{Policy:$policy}')" --region "$REGION"
 if aws lambda get-function --function-name "$LAMBDA_NAME" --region "$REGION" >/dev/null 2>&1; then
   aws lambda add-permission --function-name "$LAMBDA_NAME" --statement-id "AllowEventBridge-${SUFFIX}" --action lambda:InvokeFunction --principal events.amazonaws.com --source-arn "$RULE_ARN" --region "$REGION" 2>/dev/null || true
   TARGETS="$(jq -cn --arg arn "$LAMBDA_ARN" --arg id "DaivaMediaConvertHandler" --arg dlq "$DLQ_ARN" '[{Id:$id,Arn:$arn,DeadLetterConfig:{Arn:$dlq},RetryPolicy:{MaximumEventAgeInSeconds:86400,MaximumRetryAttempts:12}}]')"
