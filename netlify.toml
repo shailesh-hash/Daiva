@@ -1,0 +1,15 @@
+# Static Expo web preview. Catalogue fixtures are baked in so the site
+# works without the Fastify API or Postgres. Do not add SPA catch-all
+# redirects; Expo static export emits one HTML file per route.
+[build]
+  command = "pnpm --filter @daiva/client build"
+  publish = "apps/client/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  EXPO_PUBLIC_USE_CATALOGUE_FIXTURES = "true"
+
+# Preview site created for the fixture web export.
+# Redeploy this site; do not create a new anonymous drop.
+# Site: https://stately-tanuki-2ac6c9.netlify.app
+# ID: 21e69cfb-56a9-4dc2-8b34-d3a578195d4d

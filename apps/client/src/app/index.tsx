@@ -1,110 +1,101 @@
-import { ApiClient, ApiClientError } from '@daiva/api-client';
-import type { HealthResponse } from '@daiva/domain';
-import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { getApiBaseUrl } from '@/lib/config';
-
-type HealthState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'ok'; payload: HealthResponse }
-  | { status: 'error'; message: string };
+import { EpisodeRow } from '@/components/episode-row';
+import { HeroBillboard } from '@/components/hero-billboard';
+import { MediaRail } from '@/components/media-rail';
+import { SampleBanner } from '@/components/sample-banner';
+import { ScreenContainer, useContentGutterStyle } from '@/components/screen-container';
+import { ScreenState } from '@/components/screen-state';
+import { StoryRail } from '@/components/story-rail';
+import { Spacing } from '@/constants/theme';
+import { useStoriesQuery, useUniversesQuery } from '@/lib/catalogue-hooks';
+import { formatDuration } from '@/lib/format';
+import { useLibrarySnapshot, useLibraryStore } from '@/lib/library-context';
 
 export default function HomeScreen() {
-  const [health, setHealth] = useState<HealthState>({ status: 'idle' });
+  const universesQuery = useUniversesQuery();
+  const storiesQuery = useStoriesQuery();
+  const store = useLibraryStore();
+  useLibrarySnapshot();
+  const gutter = useContentGutterStyle();
+  const continueWatching = store.listContinueWatching();
+  const universe = universesQuery.data?.[0];
+  const stories = storiesQuery.data ?? [];
+  const featured = stories.filter((story) => story.featured);
+  const hero = featured[0] ?? stories[0];
 
-  const checkHealth = useCallback(async () => {
-    setHealth({ status: 'loading' });
-    const client = new ApiClient(getApiBaseUrl());
+  if (universesQuery.isPending || storiesQuery.isPending) {
+    return (
+      <ScreenContainer>
+        <ScreenState
+          kind="loading"
+          title="Loading catalogue"
+          message="Fetching published stories from the local API."
+        />
+      </ScreenContainer>
+    );
+  }
 
-    try {
-      const payload = await client.getHealth();
-      setHealth({ status: 'ok', payload });
-    } catch (error) {
-      const message =
-        error instanceof ApiClientError
-          ? error.message
-          : 'Unable to reach the API. Start it with pnpm dev:api.';
-      setHealth({ status: 'error', message });
-    }
-  }, []);
+  if (universesQuery.isError || storiesQuery.isError) {
+    return (
+      <ScreenContainer>
+        <ScreenState
+          kind="error"
+          title="Catalogue unavailable"
+          message="The public catalogue could not be loaded. Unpublished drafts stay hidden."
+          actionLabel="Try again"
+          onAction={() => {
+            void universesQuery.refetch();
+            void storiesQuery.refetch();
+          }}
+        />
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
-          Daiva Stories
-        </ThemedText>
-        <ThemedText type="small" style={styles.subtitle}>
-          Phase 1 scaffold. Catalogue, player, auth, and AI are not implemented yet.
-        </ThemedText>
-        <ThemedText type="small">API base URL: {getApiBaseUrl()}</ThemedText>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Check API health"
-          onPress={() => {
-            void checkHealth();
-          }}
-          style={styles.button}
-        >
-          <ThemedText type="smallBold" style={styles.buttonLabel}>
-            {health.status === 'loading' ? 'Checking…' : 'Check API health'}
-          </ThemedText>
-        </Pressable>
-        {health.status === 'ok' ? (
-          <ThemedText type="small">
-            {health.payload.service} is {health.payload.status} (request {health.payload.requestId})
-          </ThemedText>
+    <ScreenContainer edgeToEdge>
+      {hero ? <HeroBillboard story={hero} universeTitle={universe?.title} /> : null}
+      <View style={[...gutter, styles.stack]}>
+        <SampleBanner />
+
+        {continueWatching.length > 0 ? (
+          <MediaRail title="Continue watching">
+            {continueWatching.map((item) => (
+              <EpisodeRow
+                key={item.episode.id}
+                variant="rail"
+                episode={item.episode}
+                progressLabel={`Resume ${formatDuration(item.progress.positionSeconds)}`}
+                progressRatio={
+                  item.episode.durationSeconds > 0
+                    ? item.progress.positionSeconds / item.episode.durationSeconds
+                    : 0
+                }
+              />
+            ))}
+          </MediaRail>
         ) : null}
-        {health.status === 'error' ? (
-          <ThemedText type="small" style={styles.error}>
-            {health.message}
-          </ThemedText>
-        ) : null}
-      </SafeAreaView>
-    </ThemedView>
+
+        {featured.length > 0 ? <StoryRail title="Featured" stories={featured} /> : null}
+
+        {stories.length === 0 ? (
+          <ScreenState
+            kind="empty"
+            title="No published stories"
+            message="Draft and unpublished catalogue items stay hidden until rights, review, and READY media are in place."
+          />
+        ) : (
+          <StoryRail title="All stories" stories={stories} />
+        )}
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.three,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  subtitle: {
-    textAlign: 'center',
-  },
-  button: {
-    minHeight: 44,
-    minWidth: 160,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
-    borderRadius: Spacing.three,
-    backgroundColor: '#1d4ed8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonLabel: {
-    color: '#ffffff',
-  },
-  error: {
-    textAlign: 'center',
+  stack: {
+    gap: Spacing.five,
+    paddingTop: Spacing.four,
   },
 });

@@ -1,0 +1,281 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PublishStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  UNPUBLISHED
+  ARCHIVED
+}
+
+enum MediaProcessingStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum RightsType {
+  ORIGINAL
+  COMMISSIONED
+  LICENSED
+  PUBLIC_DOMAIN
+}
+
+enum ReviewDecision {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_CHANGES
+}
+
+model AppUser {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authSubject       String             @unique @map("auth_subject")
+  preferredLanguage String?            @map("preferred_language") @db.VarChar(12)
+  deletedAt         DateTime?          @map("deleted_at") @db.Timestamptz
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  favorites         Favorite[]
+  progress          PlaybackProgress[]
+  preference        UserPreference?
+  reviews           ContentReview[]
+
+  @@index([deletedAt])
+  @@map("app_users")
+}
+
+model UserPreference {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  preferredLanguage String?  @map("preferred_language") @db.VarChar(12)
+  interestSlugs     String[] @default([]) @map("interest_slugs")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  user              AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model StoryUniverse {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String        @unique @db.VarChar(100)
+  title            String        @db.VarChar(200)
+  description      String?
+  primaryLanguage  String        @default("kn") @map("primary_language") @db.VarChar(12)
+  status           PublishStatus @default(DRAFT)
+  isSampleContent  Boolean       @default(false) @map("is_sample_content")
+  sampleDisclaimer String?       @map("sample_disclaimer")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  stories          Story[]
+
+  @@index([status])
+  @@map("story_universes")
+}
+
+model Story {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  universeId       String          @map("universe_id") @db.Uuid
+  slug             String          @unique @db.VarChar(150)
+  title            String          @db.VarChar(250)
+  synopsis         String?
+  language         String          @default("kn") @db.VarChar(12)
+  posterAssetId    String?         @map("poster_asset_id") @db.Uuid
+  status           PublishStatus   @default(DRAFT)
+  sortOrder        Int             @default(0) @map("sort_order")
+  featured         Boolean         @default(false)
+  durationSeconds  Int?            @map("duration_seconds")
+  contentNote      String?         @map("content_note")
+  isSampleContent  Boolean         @default(false) @map("is_sample_content")
+  sampleDisclaimer String?         @map("sample_disclaimer")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  universe         StoryUniverse   @relation(fields: [universeId], references: [id], onDelete: Restrict)
+  posterAsset      MediaAsset?     @relation("StoryPoster", fields: [posterAssetId], references: [id], onDelete: SetNull)
+  episodes         Episode[]
+  favorites        Favorite[]
+  categories       StoryCategory[]
+  tags             StoryTag[]
+
+  @@index([universeId, status, sortOrder])
+  @@map("stories")
+}
+
+model Episode {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storyId           String             @map("story_id") @db.Uuid
+  slug              String             @db.VarChar(150)
+  title             String             @db.VarChar(250)
+  synopsis          String?
+  episodeNumber     Int                @map("episode_number")
+  language          String             @default("kn") @db.VarChar(12)
+  durationSeconds   Int?               @map("duration_seconds")
+  mediaAssetId      String?            @unique @map("media_asset_id") @db.Uuid
+  status            PublishStatus      @default(DRAFT)
+  publishedAt       DateTime?          @map("published_at") @db.Timestamptz
+  captionsAvailable Boolean            @default(false) @map("captions_available")
+  isSampleContent   Boolean            @default(false) @map("is_sample_content")
+  sampleDisclaimer  String?            @map("sample_disclaimer")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  story             Story              @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  currentMedia      MediaAsset?        @relation("EpisodeCurrentMedia", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  mediaAssets       MediaAsset[]       @relation("EpisodeMediaHistory")
+  reviews           ContentReview[]
+  progress          PlaybackProgress[]
+
+  @@unique([storyId, episodeNumber])
+  @@unique([storyId, slug])
+  @@index([storyId, status, episodeNumber])
+  @@map("episodes")
+}
+
+model MediaAsset {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  episodeId           String?               @map("episode_id") @db.Uuid
+  provider            String                @default("s3") @db.VarChar(40)
+  sourceObjectKey     String?               @map("source_object_key")
+  playbackManifestUrl String?               @map("playback_manifest_url")
+  posterUrl           String?               @map("poster_url")
+  captionsUrl         String?               @map("captions_url")
+  processingStatus    MediaProcessingStatus @default(UPLOADED) @map("processing_status")
+  durationSeconds     Int?                  @map("duration_seconds")
+  width               Int?
+  height              Int?
+  checksumSha256      String?               @map("checksum_sha256") @db.VarChar(64)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  episode             Episode?              @relation("EpisodeMediaHistory", fields: [episodeId], references: [id], onDelete: SetNull)
+  currentForEpisode   Episode?              @relation("EpisodeCurrentMedia")
+  posterForStories    Story[]               @relation("StoryPoster")
+  rights              ContentRights[]
+
+  @@index([episodeId])
+  @@index([processingStatus])
+  @@map("media_assets")
+}
+
+model ContentRights {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mediaAssetId      String     @map("media_asset_id") @db.Uuid
+  rightsType        RightsType @map("rights_type")
+  sourceDescription String     @map("source_description")
+  evidenceUrl       String?    @map("evidence_url")
+  territory         String?    @db.VarChar(100)
+  expiresAt         DateTime?  @map("expires_at") @db.Timestamptz
+  approvedBy        String?    @map("approved_by")
+  approvedAt        DateTime?  @map("approved_at") @db.Timestamptz
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  mediaAsset        MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@index([mediaAssetId, approvedAt])
+  @@map("content_rights")
+}
+
+model ContentReview {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  episodeId  String         @map("episode_id") @db.Uuid
+  reviewerId String?        @map("reviewer_id") @db.Uuid
+  decision   ReviewDecision @default(PENDING)
+  notes      String?
+  reviewedAt DateTime?      @map("reviewed_at") @db.Timestamptz
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  episode    Episode        @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  reviewer   AppUser?       @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([episodeId, decision])
+  @@map("content_reviews")
+}
+
+model Category {
+  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String          @unique @db.VarChar(100)
+  title     String          @db.VarChar(120)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  stories   StoryCategory[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String     @unique @db.VarChar(100)
+  title     String     @db.VarChar(120)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  stories   StoryTag[]
+
+  @@map("tags")
+}
+
+model StoryCategory {
+  storyId    String   @map("story_id") @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, categoryId])
+  @@index([categoryId])
+  @@map("story_categories")
+}
+
+model StoryTag {
+  storyId String @map("story_id") @db.Uuid
+  tagId   String @map("tag_id") @db.Uuid
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, tagId])
+  @@index([tagId])
+  @@map("story_tags")
+}
+
+model Favorite {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  storyId   String   @map("story_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  user      AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storyId])
+  @@index([userId, createdAt])
+  @@map("favorites")
+}
+
+model PlaybackProgress {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  episodeId       String   @map("episode_id") @db.Uuid
+  positionSeconds Int      @default(0) @map("position_seconds")
+  completed       Boolean  @default(false)
+  lastPlayedAt    DateTime @default(now()) @map("last_played_at") @db.Timestamptz
+  user            AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode         Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+  @@index([userId, lastPlayedAt])
+  @@map("playback_progress")
+}
+
+model AdminAuditLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorSubject String   @map("actor_subject")
+  action       String
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  details      Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorSubject, createdAt])
+  @@map("admin_audit_log")
+}

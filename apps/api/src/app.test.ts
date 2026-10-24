@@ -45,7 +45,12 @@ describe('GET /health', () => {
 
 describe('production CORS', () => {
   it('does not allow local Expo origins unless listed in CORS_ORIGINS', async () => {
-    const prodApp = await buildApp({ NODE_ENV: 'production' });
+    const prodApp = await buildApp({
+      NODE_ENV: 'production',
+      AUTH_MODE: 'cognito',
+      COGNITO_USER_POOL_ID: 'us-east-1_ExamplePool',
+      COGNITO_CLIENT_ID: 'exampleclientid',
+    });
 
     try {
       const response = await prodApp.inject({

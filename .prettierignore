@@ -10,5 +10,9 @@ apps/client/android
 apps/client/dist
 apps/client/assets
 apps/client/scripts
+apps/client/expo-env.d.ts
+apps/api/src/generated
+apps/api/prisma/migrations
+*.prisma
 Markdowm
 docs

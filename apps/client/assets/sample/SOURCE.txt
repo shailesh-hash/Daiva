@@ -1,0 +1,8 @@
+This folder holds original, locally generated test media for the Phase 3 player.
+
+- sample.mp4 is a solid-color H.264 clip with silent audio and muxed sample captions.
+- poster.png is a matching still.
+- captions.vtt is the sidecar WebVTT used on web.
+
+None of these files are Guru Daiva Dutta recordings, stock footage, or third-party downloads.
+Do not replace them with scraped or unauthorized videos.

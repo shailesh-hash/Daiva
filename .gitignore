@@ -32,9 +32,13 @@ android/local.properties
 *.mobileprovision
 *.orig.*
 
+# Generated Prisma client
+apps/api/src/generated
+
 # Tooling
 .eslintcache
 .prettiercache
+.netlify
 
 # OS and editors
 .DS_Store

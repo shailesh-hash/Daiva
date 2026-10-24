@@ -9,6 +9,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.expo/**',
       'apps/client/**',
+      'apps/api/src/generated/**',
       'pnpm-lock.yaml',
     ],
   },
