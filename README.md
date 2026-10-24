@@ -157,7 +157,13 @@ Local walkthrough:
 4. Publish is rejected until parents are published, media is READY, rights are approved, and review is approved
 5. After publish, the public catalogue shows the episode; unpublish hides it again
 
-Video upload sessions, S3, and MediaConvert are Phase 9.
+Video upload sessions, S3, and MediaConvert are Phase 9. See `apps/api/docs/phase-9-media-pipeline.md`. Admin upload routes:
+
+| Method | Path                                                      | Notes                                      |
+| ------ | --------------------------------------------------------- | ------------------------------------------ |
+| POST   | `/v1/admin/episodes/:id/media/:mediaId/upload-url`        | Presigned S3 PUT; server-generated key     |
+| POST   | `/v1/admin/episodes/:id/media/:mediaId/complete-upload`   | Head object, claim row, start MediaConvert |
+| GET    | `/v1/admin/episodes/:id/media/:mediaId/processing-status` | DB status plus MediaConvert job status     |
 
 ## Sample player (Phase 3)
 

@@ -148,6 +148,7 @@ model MediaAsset {
   posterUrl           String?               @map("poster_url")
   captionsUrl         String?               @map("captions_url")
   processingStatus    MediaProcessingStatus @default(UPLOADED) @map("processing_status")
+  processingJobId     String?               @unique @map("processing_job_id") @db.VarChar(200)
   durationSeconds     Int?                  @map("duration_seconds")
   width               Int?
   height              Int?

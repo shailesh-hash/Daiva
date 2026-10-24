@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createMediaBodySchema,
+  mediaUploadUrlBodySchema,
   createRightsBodySchema,
   patchEpisodeBodySchema,
   reviewEpisodeBodySchema,
@@ -33,6 +34,15 @@ describe('admin API schemas', () => {
   it('does not allow publishing an episode through PATCH', () => {
     expect(() => patchEpisodeBodySchema.parse({ status: 'PUBLISHED' })).toThrow();
     expect(patchEpisodeBodySchema.parse({ status: 'IN_REVIEW' })).toEqual({ status: 'IN_REVIEW' });
+  });
+
+  it('accepts only MP4 or QuickTime upload sessions', () => {
+    expect(
+      mediaUploadUrlBodySchema.parse({ contentType: 'video/mp4', fileName: 'episode.mp4' }),
+    ).toEqual({ contentType: 'video/mp4', fileName: 'episode.mp4' });
+    expect(() =>
+      mediaUploadUrlBodySchema.parse({ contentType: 'video/webm', fileName: 'episode.webm' }),
+    ).toThrow();
   });
 
   it('accepts human review decisions only', () => {

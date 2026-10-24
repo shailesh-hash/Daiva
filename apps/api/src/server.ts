@@ -12,6 +12,7 @@ const app = await buildApp(process.env, {
   catalogue: new PrismaCatalogueRepository(prisma),
   users: new PrismaUserLibraryRepository(prisma),
   admin: new PrismaAdminRepository(prisma),
+  mediaPrisma: prisma,
 });
 
 app.addHook('onClose', async () => {

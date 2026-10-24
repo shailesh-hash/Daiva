@@ -205,6 +205,39 @@ export const createMediaBodySchema = z
   })
   .strict();
 
+export const mediaAssetParamsSchema = z.object({
+  id: z.string().uuid(),
+  mediaId: z.string().uuid(),
+});
+
+export const mediaUploadUrlBodySchema = z
+  .object({
+    contentType: z.enum(['video/mp4', 'video/quicktime']),
+    fileName: z.string().trim().min(1).max(180),
+  })
+  .strict();
+
+export const mediaUploadSessionResponseSchema = z.object({
+  data: z.object({
+    uploadUrl: z.string().url(),
+    method: z.literal('PUT'),
+    objectKey: z.string().min(1),
+    expiresInSeconds: z.number().int().positive(),
+    requiredHeaders: z.object({
+      'content-type': z.enum(['video/mp4', 'video/quicktime']),
+    }),
+  }),
+});
+
+export const mediaProcessingStatusResponseSchema = z.object({
+  data: z.object({
+    mediaId: z.string().uuid(),
+    status: mediaProcessingStatusSchema,
+    jobStatus: z.string().nullable(),
+    playbackManifestUrl: z.string().nullable(),
+  }),
+});
+
 export const createRightsBodySchema = z
   .object({
     rightsType: rightsTypeSchema,
