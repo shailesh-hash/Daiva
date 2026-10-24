@@ -1,14 +1,10 @@
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { PrismaClient } from '../generated/prisma/client.js';
 
-type MediaConvertEvent = {
-  detail?: {
-    status?: string;
-    jobId?: string;
-    userMetadata?: { mediaId?: string; episodeId?: string };
-    outputGroupDetails?: Array<{ outputDetails?: Array<{ outputFilePaths?: string[] }> }>;
-    errorMessage?: string;
-  };
+import { playbackUrlForKey, resolveMasterObjectKey, type MediaConvertDetail } from './hls.js';
+
+export type MediaConvertEvent = {
+  detail?: MediaConvertDetail;
 };
 
 export async function handleMediaConvertEvent(
@@ -17,15 +13,20 @@ export async function handleMediaConvertEvent(
 ): Promise<void> {
   const detail = event.detail;
   const mediaId = detail?.userMetadata?.mediaId;
-  if (!mediaId || !detail?.status) throw new Error('Event is missing MediaConvert status or mediaId metadata');
+  if (!mediaId || !detail?.status) {
+    throw new Error('Event is missing MediaConvert status or mediaId metadata');
+  }
 
-  // EventBridge delivery is at-least-once. Terminal transitions are guarded by current state.
   const media = await deps.prisma.mediaAsset.findUnique({
     where: { id: mediaId },
     select: { id: true, episodeId: true, processingStatus: true, processingJobId: true },
   });
-  if (!media || media.processingJobId !== detail.jobId) return;
-  if (media.processingStatus === 'READY' || media.processingStatus === 'FAILED') return;
+  if (!media || media.processingJobId !== detail.jobId) {
+    return;
+  }
+  if (media.processingStatus === 'READY' || media.processingStatus === 'FAILED') {
+    return;
+  }
 
   if (detail.status === 'ERROR' || detail.status === 'CANCELED') {
     await deps.prisma.mediaAsset.updateMany({
@@ -34,23 +35,24 @@ export async function handleMediaConvertEvent(
     });
     return;
   }
-  if (detail.status !== 'COMPLETE') return;
-
-  const paths = detail.outputGroupDetails?.flatMap((group) =>
-    group.outputDetails?.flatMap((output) => output.outputFilePaths ?? []) ?? [],
-  ) ?? [];
-  // Require an actual master manifest in the configured output prefix before marking READY.
-  const expectedKey = `episodes/${mediaId}/index.m3u8`;
-  const masterExists = await deps.s3.send(new HeadObjectCommand({
-    Bucket: deps.outputBucket,
-    Key: expectedKey,
-  })).then(() => true, () => false);
-  if (!masterExists) {
-    throw new Error(`MediaConvert completed but expected HLS master manifest is missing for media ${mediaId}; outputs: ${paths.join(', ')}`);
+  if (detail.status !== 'COMPLETE') {
+    return;
   }
-  const manifestUrl = deps.cdnDomain
-    ? `https://${deps.cdnDomain}/${expectedKey}`
-    : `s3://${deps.outputBucket}/${expectedKey}`;
+
+  const masterKey = resolveMasterObjectKey(detail, mediaId, deps.outputBucket);
+  const masterExists = await deps.s3
+    .send(new HeadObjectCommand({ Bucket: deps.outputBucket, Key: masterKey }))
+    .then(
+      () => true,
+      () => false,
+    );
+  if (!masterExists) {
+    throw new Error(
+      `MediaConvert completed but HLS master playlist is missing for media ${mediaId} at ${masterKey}`,
+    );
+  }
+
+  const manifestUrl = playbackUrlForKey(masterKey, deps.cdnDomain, deps.outputBucket);
   await deps.prisma.$transaction(async (tx) => {
     const updated = await tx.mediaAsset.updateMany({
       where: { id: mediaId, processingStatus: 'PROCESSING', processingJobId: detail.jobId },
