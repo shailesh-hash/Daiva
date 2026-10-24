@@ -123,7 +123,7 @@ export async function buildApp(
   await registerDevSessionRoute(app, env);
   await registerAdminRoutes(app, admin, env);
 
-  const mediaConfig = ['AWS_REGION', 'MEDIA_SOURCE_BUCKET', 'MEDIA_OUTPUT_BUCKET', 'MEDIACONVERT_ENDPOINT', 'MEDIACONVERT_ROLE_ARN'];
+  const mediaConfig = ['AWS_REGION', 'MEDIA_SOURCE_BUCKET', 'MEDIA_OUTPUT_BUCKET', 'MEDIACONVERT_ENDPOINT', 'MEDIACONVERT_ROLE_ARN', 'CDN_DOMAIN'];
   const configuredMediaValues = mediaConfig.filter((key) => Boolean(env[key]?.trim()));
   if (configuredMediaValues.length > 0 && configuredMediaValues.length !== mediaConfig.length) {
     throw new Error('Phase 9 media configuration is incomplete; set all required AWS media environment variables');
