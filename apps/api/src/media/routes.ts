@@ -2,10 +2,7 @@ import {
   CreateJobCommand,
   GetJobCommand,
 } from '@aws-sdk/client-mediaconvert';
-import {
-  HeadObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
+import { HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '../generated/prisma/client.js';
@@ -47,8 +44,8 @@ export async function registerMediaRoutes(
         select: { id: true, processingStatus: true, sourceObjectKey: true },
       });
       if (!media) throw new ApiHttpError(404, 'NOT_FOUND', 'Media asset not found for episode');
-      if (media.processingStatus !== 'UPLOADED') {
-        throw new ApiHttpError(409, 'CONFLICT', 'A new upload URL is only available for UPLOADED media');
+      if (media.processingStatus !== 'UPLOADED' && media.processingStatus !== 'FAILED') {
+        throw new ApiHttpError(409, 'CONFLICT', 'A new upload URL is only available before processing or after a failed job');
       }
       const key = sourceKey(mediaId);
       await prisma.mediaAsset.update({ where: { id: mediaId }, data: { sourceObjectKey: key } });
@@ -77,7 +74,7 @@ export async function registerMediaRoutes(
       });
       if (!media) throw new ApiHttpError(404, 'NOT_FOUND', 'Media asset not found for episode');
       if (!media.sourceObjectKey) throw new ApiHttpError(409, 'CONFLICT', 'Request an upload URL before completing upload');
-      if (media.processingStatus !== 'UPLOADED') {
+      if (media.processingStatus !== 'UPLOADED' && media.processingStatus !== 'FAILED') {
         throw new ApiHttpError(409, 'CONFLICT', 'Media upload has already been submitted for processing');
       }
       const head = await clients.s3.send(new HeadObjectCommand({ Bucket: sourceBucket, Key: media.sourceObjectKey }));
@@ -91,7 +88,7 @@ export async function registerMediaRoutes(
       // Claim the media row before creating a job so concurrent completion requests cannot
       // launch duplicate transcodes. If CreateJob fails, release the claim as FAILED for admin retry.
       const claim = await prisma.mediaAsset.updateMany({
-        where: { id: mediaId, processingStatus: 'UPLOADED' },
+        where: { id: mediaId, processingStatus: { in: ['UPLOADED', 'FAILED'] } },
         data: { processingStatus: 'QUEUED' },
       });
       if (claim.count !== 1) throw new ApiHttpError(409, 'CONFLICT', 'Media is already queued for processing');
@@ -110,8 +107,8 @@ export async function registerMediaRoutes(
                 HlsGroupSettings: { Destination: destination, SegmentLength: 6, MinSegmentLength: 0 },
               },
               Outputs: [
-                { NameModifier: '/720p', ContainerSettings: { Container: 'M3U8' }, VideoDescription: { Width: 1280, Height: 720, CodecSettings: { Codec: 'H_264', H264Settings: { RateControlMode: 'QVBR', QvbrSettings: { QvbrQualityLevel: 7 }, MaxBitrate: 5000000 } } }, AudioDescriptions: [{ CodecSettings: { Codec: 'AAC', AacSettings: { Bitrate: 96000, CodingMode: 'CODING_MODE_2_0', SampleRate: 48000 } } }] },
-                { NameModifier: '/360p', ContainerSettings: { Container: 'M3U8' }, VideoDescription: { Width: 640, Height: 360, CodecSettings: { Codec: 'H_264', H264Settings: { RateControlMode: 'QVBR', QvbrSettings: { QvbrQualityLevel: 7 }, MaxBitrate: 1200000 } } }, AudioDescriptions: [{ CodecSettings: { Codec: 'AAC', AacSettings: { Bitrate: 64000, CodingMode: 'CODING_MODE_2_0', SampleRate: 48000 } } }] },
+                { NameModifier: '_720p', ContainerSettings: { Container: 'M3U8' }, VideoDescription: { Width: 1280, Height: 720, CodecSettings: { Codec: 'H_264', H264Settings: { RateControlMode: 'QVBR', QvbrSettings: { QvbrQualityLevel: 7 }, MaxBitrate: 5000000 } } }, AudioDescriptions: [{ CodecSettings: { Codec: 'AAC', AacSettings: { Bitrate: 96000, CodingMode: 'CODING_MODE_2_0', SampleRate: 48000 } } }] },
+                { NameModifier: '_360p', ContainerSettings: { Container: 'M3U8' }, VideoDescription: { Width: 640, Height: 360, CodecSettings: { Codec: 'H_264', H264Settings: { RateControlMode: 'QVBR', QvbrSettings: { QvbrQualityLevel: 7 }, MaxBitrate: 1200000 } } }, AudioDescriptions: [{ CodecSettings: { Codec: 'AAC', AacSettings: { Bitrate: 64000, CodingMode: 'CODING_MODE_2_0', SampleRate: 48000 } } }] },
               ],
             }],
           },
